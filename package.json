@@ -1,0 +1,16 @@
+{
+    "name": "odepa-scraper",
+    "version": "1.0.0",
+    "description": "Scraper automático de precios ODEPA (frutas)",
+    "main": "scraper.js",
+    "scripts": {
+        "scrape": "node scraper.js",
+        "test": "node scraper.js"
+    },
+    "keywords": ["odepa", "scraper", "chile", "precios", "agricultura"],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "playwright": "^1.40.0"
+    }
+}
