@@ -22,7 +22,7 @@ jobs:
         run: npm install
 
       - name: Run scraper
-        run: node scrape.js
+        run: node scraper.js
 
       - name: Commit JSON
         run: |
