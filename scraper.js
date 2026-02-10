@@ -117,6 +117,25 @@ async function scrapeODEPA() {
 
         const stats = fs.statSync(filepath);
         console.log(`📊 Tamaño del archivo: ${(stats.size / 1024).toFixed(2)} KB`);
+        const xlsx = require("xlsx")
+        const fs = require("fs")
+        const path = require("path")
+        
+        // Ruta del archivo descargado
+        const filePath = path.join(__dirname, "downloads", nombreDelArchivo)
+        
+        // Leer Excel
+        const workbook = xlsx.readFile(filePath)
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const data = xlsx.utils.sheet_to_json(sheet)
+        
+        // Guardar JSON limpio
+        fs.writeFileSync(
+          path.join(__dirname, "data", "precios.json"),
+          JSON.stringify(data, null, 2)
+        )
+        
+        console.log("JSON generado correctamente")
 
         return { success: true, filename, filepath, size: stats.size, date: today };
 
