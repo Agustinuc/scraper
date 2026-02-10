@@ -1,5 +1,8 @@
 name: Update ODEPA Data
 
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: '0 10 * * *'
