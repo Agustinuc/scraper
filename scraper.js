@@ -8,6 +8,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
+const xlsx = require("xlsx");
 
 const ODEPA_LANDING_URL = 'https://www.odepa.gob.cl/precios/mayoristas-frutas-y-hortalizas';
 const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || './downloads';
@@ -117,22 +118,24 @@ async function scrapeODEPA() {
 
         const stats = fs.statSync(filepath);
         console.log(`📊 Tamaño del archivo: ${(stats.size / 1024).toFixed(2)} KB`);
-        const xlsx = require("xlsx")
-        const fs = require("fs")
-        const path = require("path")
+
+        // Crear carpeta data si no existe
+        const dataDir = path.join(__dirname, "data");
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
         
-        // Ruta del archivo descargado
-        const filePath = path.join(__dirname, "downloads", nombreDelArchivo)
+        // Leer Excel descargado
+        const workbook = xlsx.readFile(filepath);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = xlsx.utils.sheet_to_json(sheet);
         
-        // Leer Excel
-        const workbook = xlsx.readFile(filePath)
-        const sheet = workbook.Sheets[workbook.SheetNames[0]]
-        const data = xlsx.utils.sheet_to_json(sheet)
+        // Guardar JSON
+        const jsonPath = path.join(dataDir, "precios.json");
+        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
         
-        // Guardar JSON limpio
-        fs.writeFileSync(
-          path.join(__dirname, "data", "precios.json"),
-          JSON.stringify(data, null, 2)
+        console.log("✅ JSON generado correctamente");
+        
         )
         
         console.log("JSON generado correctamente")
