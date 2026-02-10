@@ -1,5 +1,6 @@
 /**
  * ODEPA Daily Price Scraper - FRUTAS
+ 
  * 
  * Descarga automáticamente el Excel de precios diarios de FRUTAS
  * desde https://reportes.odepa.gob.cl
@@ -43,25 +44,18 @@ async function scrapeODEPA() {
         await sleep(3000);
 
         console.log('🔍 Buscando "Acceder a la consulta"...');
-        const [newPage] = await Promise.all([
-            context.waitForEvent('page'),
-            page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                const accessLink = links.find(a =>
-                    a.textContent.includes('Acceder a la consulta') &&
-                    a.href.includes('reportes.odepa.gob.cl')
-                );
-                if (accessLink) {
-                    accessLink.click();
-                    return true;
-                }
-                return false;
-            })
+        console.log('🔍 Buscando "Acceder a la consulta"...');
+
+        const accessLink = page.locator('a:has-text("Acceder a la consulta")').first();
+        
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle' }),
+            accessLink.click()
         ]);
-
-        console.log('✅ Nueva pestaña abierta con el formulario');
-
-        const formPage = newPage;
+        
+        console.log('✅ Navegación al formulario completada');
+        
+        const formPage = page;
         await formPage.waitForLoadState('networkidle');
         await sleep(5000);
 
