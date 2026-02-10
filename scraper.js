@@ -104,7 +104,7 @@ async function scrapeODEPA() {
 
         const downloadButton = formPage
             .getByRole('button', { name: 'Descargar Excel' })
-            .first(); // 👈 forzamos el primero
+            .first();
         
         await downloadButton.waitFor({ state: 'visible', timeout: 60000 });
         
@@ -112,7 +112,15 @@ async function scrapeODEPA() {
             formPage.waitForEvent('download'),
             downloadButton.click()
         ]);
-
+        
+        // 👇 DEFINIMOS LAS VARIABLES AQUÍ
+        const today = new Date().toISOString().split('T')[0];
+        const filename = `odepa_frutas_${today}.xlsx`;
+        const filepath = path.join(DOWNLOAD_DIR, filename);
+        
+        // 👇 GUARDAMOS EL ARCHIVO
+        await download.saveAs(filepath);
+        
         console.log(`✅ Archivo guardado: ${filepath}`);
 
         const stats = fs.statSync(filepath);
