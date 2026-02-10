@@ -102,16 +102,16 @@ async function scrapeODEPA() {
 
         console.log('📥 Descargando Excel...');
 
+        const downloadButton = formPage
+            .getByRole('button', { name: 'Descargar Excel' })
+            .first(); // 👈 forzamos el primero
+        
+        await downloadButton.waitFor({ state: 'visible', timeout: 60000 });
+        
         const [download] = await Promise.all([
             formPage.waitForEvent('download'),
-            formPage.locator('button:has-text("Descargar Excel")').click()
+            downloadButton.click()
         ]);
-
-        const today = new Date().toISOString().split('T')[0];
-        const filename = `odepa_frutas_${today}.xlsx`;
-        const filepath = path.join(DOWNLOAD_DIR, filename);
-
-        await download.saveAs(filepath);
 
         console.log(`✅ Archivo guardado: ${filepath}`);
 
