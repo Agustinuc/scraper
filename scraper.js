@@ -1,15 +1,12 @@
 /**
  * ODEPA Daily Price Scraper - FRUTAS
- 
- * 
  * Descarga automáticamente el Excel de precios diarios de FRUTAS
- * desde https://reportes.odepa.gob.cl
  */
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
-const xlsx = require("xlsx");
+const xlsx = require('xlsx');
 
 const ODEPA_LANDING_URL = 'https://www.odepa.gob.cl/precios/mayoristas-frutas-y-hortalizas';
 const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || './downloads';
@@ -39,68 +36,75 @@ async function scrapeODEPA() {
     const page = await context.newPage();
 
     try {
-        console.log('📍 Navegando a ODEPA Mayoristas...');
-        await page.goto(ODEPA_LANDING_URL, { waitUntil: 'networkidle', timeout: 60000 });
+        console.log('📍 Navegando a ODEPA...');
+        await page.goto(ODEPA_LANDING_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await sleep(3000);
 
-        console.log('🔍 Buscando "Acceder a la consulta"...');
-        console.log('🔍 Buscando "Acceder a la consulta"...');
+        console.log('🔍 Buscando link a reportes...');
 
-        const accessLink = page.locator('a:has-text("Acceder a la consulta")').first();
-        
-        await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle' }),
+        // Más estable que buscar por texto
+        const accessLink = page.locator('a[href*="reportes.odepa.gob.cl"]').first();
+
+        if (await accessLink.count() === 0) {
+            throw new Error('No se encontró el link a reportes.odepa.gob.cl');
+        }
+
+        let formPage = page;
+
+        const [newPage] = await Promise.all([
+            context.waitForEvent('page').catch(() => null),
             accessLink.click()
         ]);
-        
-        console.log('✅ Navegación al formulario completada');
-        
-        const formPage = page;
-        await formPage.waitForLoadState('networkidle');
+
+        if (newPage) {
+            console.log('🆕 Nueva pestaña detectada');
+            formPage = newPage;
+        } else {
+            console.log('🔄 Navegó en la misma pestaña');
+        }
+
+        await formPage.waitForLoadState('domcontentloaded');
         await sleep(5000);
 
-        await formPage.waitForSelector('text=Parámetros de consulta', { timeout: 30000 });
-        console.log('✅ Formulario de parámetros cargado');
+        console.log('✅ Página de formulario cargada');
+
+        await formPage.waitForSelector('text=Parámetros de consulta', { timeout: 60000 });
 
         console.log('🍎 Seleccionando Frutas...');
-        await formPage.click('mat-radio-button:has-text("Frutas")');
+        await formPage.locator('mat-radio-button:has-text("Frutas")').click();
         await sleep(1500);
 
         console.log('📍 Seleccionando Mercados: Todos...');
-        const mercadosTodos = formPage.locator('mat-checkbox:has-text("Todos")').first();
-        await mercadosTodos.click();
+        await formPage.locator('mat-checkbox:has-text("Todos")').first().click();
         await sleep(1000);
 
         console.log('📍 Seleccionando Productos: Todos...');
-        const productosTodos = formPage.locator('mat-checkbox:has-text("Todos")').nth(1);
-        await productosTodos.click();
+        await formPage.locator('mat-checkbox:has-text("Todos")').nth(1).click();
         await sleep(1000);
 
-        console.log('📍 Seleccionando Origen en detalles...');
+        console.log('📍 Seleccionando Origen...');
         await formPage.evaluate(() => {
             const checkboxes = Array.from(document.querySelectorAll('mat-checkbox'));
-            const origenCb = checkboxes.find(c => c.innerText.includes('Origen'));
-            if (origenCb && !origenCb.classList.contains('mat-checkbox-checked')) {
-                origenCb.querySelector('label').click();
+            const origen = checkboxes.find(cb => cb.innerText.includes('Origen'));
+            if (origen && !origen.classList.contains('mat-checkbox-checked')) {
+                origen.querySelector('label')?.click();
             }
         });
 
-        console.log('  ✅ Origen seleccionado');
         await sleep(1000);
 
-        console.log('📍 Generando informe...');
-        await formPage.click('button:has-text("Ver Informe")');
+        console.log('📊 Generando informe...');
+        await formPage.locator('button:has-text("Ver Informe")').click();
 
-        console.log('⏳ Esperando generación del informe...');
-        await formPage.waitForSelector('button:has-text("Descargar Excel")', { timeout: 120000 });
-        await sleep(3000);
-
-        console.log('✅ Informe generado');
+        await formPage.waitForSelector('button:has-text("Descargar Excel")', {
+            timeout: 120000
+        });
 
         console.log('📥 Descargando Excel...');
+
         const [download] = await Promise.all([
             formPage.waitForEvent('download'),
-            formPage.click('button:has-text("Descargar Excel")')
+            formPage.locator('button:has-text("Descargar Excel")').click()
         ]);
 
         const today = new Date().toISOString().split('T')[0];
@@ -108,43 +112,48 @@ async function scrapeODEPA() {
         const filepath = path.join(DOWNLOAD_DIR, filename);
 
         await download.saveAs(filepath);
+
         console.log(`✅ Archivo guardado: ${filepath}`);
 
         const stats = fs.statSync(filepath);
-        console.log(`📊 Tamaño del archivo: ${(stats.size / 1024).toFixed(2)} KB`);
 
-        // Crear carpeta data si no existe
-        const dataDir = path.join(__dirname, "data");
+        const dataDir = path.join(__dirname, 'data');
         if (!fs.existsSync(dataDir)) {
             fs.mkdirSync(dataDir, { recursive: true });
         }
-        
-        // Leer Excel descargado
+
         const workbook = xlsx.readFile(filepath);
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const data = xlsx.utils.sheet_to_json(sheet);
-        
-        // Guardar JSON
-        const jsonPath = path.join(dataDir, "precios.json");
-        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
-        
-        console.log("✅ JSON generado correctamente");
-        
-    
-        
-        console.log("JSON generado correctamente")
 
-        return { success: true, filename, filepath, size: stats.size, date: today };
+        const jsonPath = path.join(dataDir, 'precios.json');
+        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+
+        console.log('✅ JSON generado correctamente');
+
+        return {
+            success: true,
+            filename,
+            filepath,
+            size: stats.size,
+            date: today
+        };
 
     } catch (error) {
         console.error('❌ Error durante el scraping:', error.message);
+
         const pages = context.pages();
         for (let i = 0; i < pages.length; i++) {
-            const screenshotPath = path.join(DOWNLOAD_DIR, `error_page${i}_${Date.now()}.png`);
+            const screenshotPath = path.join(
+                DOWNLOAD_DIR,
+                `error_page${i}_${Date.now()}.png`
+            );
             await pages[i].screenshot({ path: screenshotPath, fullPage: true });
-            console.log(`📸 Screenshot de error guardado: ${screenshotPath}`);
+            console.log(`📸 Screenshot guardado: ${screenshotPath}`);
         }
+
         throw error;
+
     } finally {
         await browser.close();
         console.log('🏁 Navegador cerrado');
@@ -154,11 +163,11 @@ async function scrapeODEPA() {
 if (require.main === module) {
     scrapeODEPA()
         .then(result => {
-            console.log('\n✅ Scraping completado exitosamente');
+            console.log('\n✅ Scraping completado');
             console.log(JSON.stringify(result, null, 2));
             process.exit(0);
         })
-        .catch(error => {
+        .catch(() => {
             console.error('\n❌ Scraping falló');
             process.exit(1);
         });
