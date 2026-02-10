@@ -136,7 +136,7 @@ async function scrapeODEPA() {
         
         console.log("✅ JSON generado correctamente");
         
-        )
+    
         
         console.log("JSON generado correctamente")
 
