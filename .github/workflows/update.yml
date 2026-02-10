@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 👇 ESTA PARTE ES CLAVE
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
       - name: Run scraper
         run: node scraper.js
 
